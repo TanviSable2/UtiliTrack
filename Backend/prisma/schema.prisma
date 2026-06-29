@@ -1,0 +1,189 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  Int       @id @default(autoincrement())
+  name                String
+  email               String
+  password_hash       String
+  role                Role      @default(TENANT)
+  phone               String?
+  created_by_admin_id Int?
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @updatedAt
+
+  buildings       Building[]
+  unit            Unit?
+  disputes_raised Dispute[]  @relation("TenantDisputes")
+
+  @@unique([email, created_by_admin_id])
+  @@map("users")
+}
+enum Role {
+  ADMIN
+  TENANT
+}
+
+model Building {
+  id                    Int      @id @default(autoincrement())
+  name                  String
+  address               String
+  admin_id              Int
+  meter_reading_day     Int      @default(25)
+  bill_generation_day   Int      @default(1)
+  payment_due_days      Int      @default(15)
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+
+  admin  User   @relation(fields: [admin_id], references: [id])
+  units  Unit[]
+
+  @@map("buildings")
+}
+
+model Unit {
+  id          Int      @id @default(autoincrement())
+  unit_number String
+  floor       Int
+  building_id Int
+  tenant_id   Int?     @unique
+  monthly_rent Float   @default(0)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  building        Building        @relation(fields: [building_id], references: [id])
+  tenant          User?           @relation(fields: [tenant_id], references: [id])
+  meter_readings  MeterReading[]
+  bills           Bill[]
+
+  @@unique([unit_number, building_id])
+  @@map("units")
+}
+
+model UtilityRate {
+  id             Int         @id @default(autoincrement())
+  utility_type   UtilityType
+  rate_per_unit  Float
+  fixed_charge   Float       @default(0)
+  effective_from DateTime    @default(now())
+  created_at     DateTime    @default(now())
+
+  @@map("utility_rates")
+}
+
+enum UtilityType {
+  ELECTRICITY
+  WATER
+  GAS
+}
+
+model MeterReading {
+  id             Int         @id @default(autoincrement())
+  unit_id        Int
+  utility_type   UtilityType
+  reading_value  Float
+  reading_date   DateTime    @default(now())
+  billing_month  String
+  photo_url      String?
+  is_flagged     Boolean     @default(false)
+  flag_reason    String?
+  created_at     DateTime    @default(now())
+
+  unit Unit @relation(fields: [unit_id], references: [id])
+
+  @@unique([unit_id, utility_type, billing_month])
+  @@map("meter_readings")
+}
+
+model Bill {
+  id               Int        @id @default(autoincrement())
+  unit_id          Int
+  billing_month    String
+  rent_amount      Float      @default(0)
+  utility_amount   Float      @default(0)
+  total_amount     Float
+  status           BillStatus @default(UNPAID)
+  due_date         DateTime
+  pdf_path         String?
+  convergent_pdf   String?
+  is_convergent    Boolean    @default(false)
+  created_at       DateTime   @default(now())
+  updated_at       DateTime   @updatedAt
+
+  unit        Unit        @relation(fields: [unit_id], references: [id])
+  line_items  BillItem[]
+  payments    Payment[]
+  disputes    Dispute[]
+
+  @@unique([unit_id, billing_month])
+  @@map("bills")
+}
+
+enum BillStatus {
+  UNPAID
+  PARTIAL
+  PAID
+  OVERDUE
+}
+
+model BillItem {
+  id               Int         @id @default(autoincrement())
+  bill_id          Int
+  utility_type     UtilityType
+  previous_reading Float
+  current_reading  Float
+  units_consumed   Float
+  rate_per_unit    Float
+  fixed_charge     Float       @default(0)
+  amount           Float
+  created_at       DateTime    @default(now())
+
+  bill Bill @relation(fields: [bill_id], references: [id])
+
+  @@map("bill_items")
+}
+
+model Payment {
+  id             Int      @id @default(autoincrement())
+  bill_id        Int
+  amount_paid    Float
+  payment_date   DateTime @default(now())
+  payment_mode   String
+  notes          String?
+  created_at     DateTime @default(now())
+
+  bill Bill @relation(fields: [bill_id], references: [id])
+
+  @@map("payments")
+}
+
+model Dispute {
+  id               Int           @id @default(autoincrement())
+  bill_id          Int
+  tenant_id        Int
+  reason           String
+  status           DisputeStatus @default(OPEN)
+  admin_response   String?
+  corrected_reading Float?
+  resolved_at      DateTime?
+  created_at       DateTime      @default(now())
+  updated_at       DateTime      @updatedAt
+
+  bill   Bill @relation(fields: [bill_id], references: [id])
+  tenant User @relation("TenantDisputes", fields: [tenant_id], references: [id])
+
+  @@map("disputes")
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  REJECTED
+}
