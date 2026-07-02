@@ -8,7 +8,7 @@ on:
 
 jobs:
   ci-backend:
-    name: Backend CI
+    name: Backend — Install and check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,8 +33,11 @@ jobs:
         working-directory: Backend
         run: node --check src/index.js
 
+      - name: Verify Dockerfile exists
+        run: test -f Backend/Dockerfile && echo "Dockerfile found"
+
   ci-frontend:
-    name: Frontend CI
+    name: Frontend — Build check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -55,57 +58,51 @@ jobs:
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: frontend-build
-          path: Frontend/dist/
-          retention-days: 1
+      - name: Verify build output exists
+        run: test -d Frontend/dist && echo "Build output found"
 
   deploy-backend:
-    name: Deploy Backend to App Runner
+    name: Deploy backend to Render
     runs-on: ubuntu-latest
     needs: ci-backend
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1
-
-      - name: Trigger App Runner deployment
+      - name: Trigger Render deploy
         run: |
-          aws apprunner start-deployment \
-            --service-arn ${{ secrets.APP_RUNNER_SERVICE_ARN }}
-          echo "App Runner deployment triggered"
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}" \
+            --fail \
+            --silent \
+            --show-error
+          echo "Render deploy triggered successfully"
 
-      - name: Wait for deployment to complete
+      - name: Wait for Render to deploy
         run: |
-          echo "Waiting 90 seconds for App Runner to deploy..."
-          sleep 90
+          echo "Waiting 60 seconds for Render to start deployment..."
+          sleep 60
 
       - name: Verify backend health
         run: |
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.BACKEND_URL }}/api/health)
-          echo "Health check returned: $STATUS"
-          if [ "$STATUS" != "200" ]; then
-            echo "Backend health check FAILED"
-            exit 1
-          fi
-          echo "Backend deployed and healthy"
+          echo "Checking backend health..."
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.BACKEND_URL }}/api/health || echo "000")
+            echo "Attempt $i: status $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "Backend is healthy"
+              exit 0
+            fi
+            sleep 30
+          done
+          echo "Backend health check failed after 5 attempts"
+          exit 1
 
   deploy-frontend:
-    name: Frontend deploys via Amplify automatically
+    name: Frontend deploys via Vercel automatically
     runs-on: ubuntu-latest
     needs: ci-frontend
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     steps:
-      - name: Amplify auto-deploys on GitHub push
+      - name: Vercel auto-deploys on push
         run: |
-          echo "AWS Amplify is connected to this GitHub repo"
-          echo "It detects the push to main and deploys automatically"
-          echo "No manual step needed here"
+          echo "Vercel is connected to this GitHub repo"
+          echo "It detected the push to main and is deploying automatically"
+          echo "Check vercel.com dashboard for deployment status"

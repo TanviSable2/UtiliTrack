@@ -4,36 +4,6 @@ A full-stack utility billing platform built for residential property management.
 
 Built as a portfolio project targeting Yardi Systems (Pune) and Pratiti Technologies.
 
----
-
-## Live Demo
-
-| Service | URL |
-|---|---|
-| Frontend | Coming soon |
-| Backend API | Coming soon |
-| Health check | `/api/health` |
-
-**Demo credentials**
-
-| Role | Email | Password |
-|---|---|---|
-| Admin | admin@utilitrack.com | admin123 |
-| Tenant | amit@tenant.com | tenant123 |
-
----
-
-## What this project solves
-
-Yardi's real product reviews mention these complaints:
-- Bills arrive with no logical pattern or month delay
-- Manual meter reading errors cause disputes that take weeks to resolve
-- Water leaks go unnoticed until a massive master bill arrives
-- Tenants cannot see what they are being charged for
-
-UtiliTrack solves all of these with automated billing, real-time validation, leak detection, and a full dispute resolution flow.
-
----
 
 ## Features
 

@@ -1,0 +1,29 @@
+# Environment files — never commit these
+.env
+.env.local
+.env.production
+Backend/.env
+Frontend/.env
+
+# Dependencies
+node_modules/
+Backend/node_modules/
+Frontend/node_modules/
+
+# Build outputs
+Frontend/dist/
+Backend/dist/
+
+# Uploads — stored on Cloudinary in production
+Backend/uploads/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Prisma
+Backend/prisma/dev.db

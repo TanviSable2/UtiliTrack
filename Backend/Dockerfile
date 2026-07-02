@@ -10,6 +10,8 @@ RUN npx prisma generate
 
 COPY src ./src
 
+RUN mkdir -p uploads
+
 EXPOSE 8080
 
 CMD ["node", "src/index.js"]
