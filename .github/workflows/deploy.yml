@@ -69,6 +69,13 @@ jobs:
     steps:
       - name: Trigger Render deploy
         run: |
+          if [ -z "${{ secrets.RENDER_DEPLOY_HOOK }}" ]; then
+            echo "ERROR: RENDER_DEPLOY_HOOK secret is not set."
+            echo "Go to GitHub repo Settings → Secrets and variables → Actions → New repository secret"
+            echo "Name: RENDER_DEPLOY_HOOK"
+            echo "Value: copy from Render dashboard → your service → Settings → Deploy Hook"
+            exit 1
+          fi
           curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK }}" \
             --fail \
             --silent \
@@ -77,19 +84,24 @@ jobs:
 
       - name: Wait for Render to deploy
         run: |
-          echo "Waiting 60 seconds for Render to start deployment..."
-          sleep 60
+          echo "Waiting 90 seconds for Render to build and start..."
+          sleep 90
 
       - name: Verify backend health
         run: |
+          if [ -z "${{ secrets.BACKEND_URL }}" ]; then
+            echo "ERROR: BACKEND_URL secret is not set."
+            exit 1
+          fi
           echo "Checking backend health..."
           for i in 1 2 3 4 5; do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.BACKEND_URL }}/api/health || echo "000")
-            echo "Attempt $i: status $STATUS"
+            echo "Attempt $i: HTTP $STATUS"
             if [ "$STATUS" = "200" ]; then
-              echo "Backend is healthy"
+              echo "Backend is healthy — deployment successful"
               exit 0
             fi
+            echo "Not ready yet, waiting 30 seconds..."
             sleep 30
           done
           echo "Backend health check failed after 5 attempts"
@@ -104,5 +116,5 @@ jobs:
       - name: Vercel auto-deploys on push
         run: |
           echo "Vercel is connected to this GitHub repo"
-          echo "It detected the push to main and is deploying automatically"
-          echo "Check vercel.com dashboard for deployment status"
+          echo "It detects every push to main and deploys automatically"
+          echo "No manual step needed — check vercel.com dashboard for status"
